@@ -1,0 +1,33 @@
+#otherpg{
+    background-color:gray;
+}
+#content{
+    
+    font-family: verdana;
+    font-size: 14px;
+    color: white;
+}
+h1{
+    color: lightblue;
+}
+h3{
+    color: lightblue;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+.cc{
+    color: yellow;
+}
+.abbr{
+    color:brown;
+    font-weight: bold;
+}
+#expl{
+    font-style: italic;
+}
+.mood{
+    width: 200px;
+    height: 200px;
+}
+a{
+    text-decoration: none;
+}
