@@ -1,11 +1,17 @@
 #otherpg{
     background-color:gray;
 }
-#content{
-    
-    font-family: verdana;
-    font-size: 14px;
+#content{ 
+    font-family: Trebuchet MS;
+    font-size: 12px;
     color: white;
+}
+#mtitle{
+    font-size: 36px;
+    font-weight: bold;
+}
+#myself{
+    font-size: 14px;
 }
 h1{
     color: lightblue;
@@ -24,10 +30,24 @@ h3{
 #expl{
     font-style: italic;
 }
-.mood{
-    width: 200px;
-    height: 200px;
+.hvtest{
+    color: red;
+}
+.hvtest:hover{
+    color: bisque;
+    text-decoration: underline;
+}
+.hvtest:visited{
+    color: white;
 }
 a{
     text-decoration: none;
 }
+p:first-child:first-letter {
+    color: white;
+    float: left;
+    font-family: Georgia;
+    font-size: 50px;
+    line-height: 20px;
+    margin-top: -10px;
+  }
