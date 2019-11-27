@@ -6,26 +6,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <title>Home Page</title>
 </head>
 
 <body>
-    <h2>Jean de la Paix DUKOMEZEDUSENGE-610573</h2>
-    <a href="images/jp.jpeg"><img src="images/jp.jpeg" width="100" alt="John's Picture" height="100" /></a>
+    <div class="myheader">
+        <h2>Jean de la Paix DUKOMEZEDUSENGE-610573</h2>
+        <a href="images/jp.jpeg"><img src="images/jp.jpeg" width="100" alt="John's Picture" height="100" /></a>
+    </div>
+    <br/>
+    <div class="menus">
+        <div class="dropdown">
+            <button class="dropbtn" onclick="myFunction()">Home Works
+                      <i class="fa fa-caret-down"></i>
+                    </button>
 
-    <ul id="pagelinks">
-        <li><a href="index.html">LAB1 &#8226; Home Page</a></li>
-        <li><a href="Aboutus.html">About us</a></li>
-        <li><a href="homework1.html">HomeWork 1</a></li>
-        <li><a href="#">LAB3</a></li>
-        <li><a href="#">LAB4</a></li>
-        <li><a href="#">LAB5</a></li>
-        <li><a href="#">LAB6</a></li>
-    </ul>
+            <button class="dropbtn" onclick="myFunction2()">Labs
+                            <i class="fa fa-caret-down"></i>
+                          </button>
+            <div class="dropdown-content" id="myDropdown">
+                <a href="homework1.html">HomeWork 1</a>
+            </div>
+            <div class="dropdown-content" id="myDropdown2">
+                <a href="index.html">LAB1 &#8226; Home Page</a>
+                <a href="Aboutus.html">About us</a>
+                <a href="#">LAB3</a>
+                <a href="#">LAB4</a>
+                <a href="#">LAB5</a>
+                <a href="#">LAB6</a>
+            </div>
+        </div>
 
-    <a href="https://validator.w3.org/check/referer">
-        <img src="http://mumstudents.org/cs472/2014-09/images/w3c-html.png" alt="html validator" />
-    </a>
+    </div>
+    <div class="myfooter">
+        <a href="https://validator.w3.org/check/referer">
+            <img src="http://mumstudents.org/cs472/2014-09/images/w3c-html.png" alt="html validator" />
+        </a>
+    </div>
+
+    <script>
+        /* When the user clicks on the button, 
+                                                                                                                                                    toggle between hiding and showing the dropdown content */
+        function myFunction() {
+            document.getElementById("myDropdown").classList.toggle("show");
+        }
+
+        function myFunction2() {
+            document.getElementById("myDropdown2").classList.toggle("show");
+        }
+
+
+        // Close the dropdown if the user clicks outside of it
+        window.onclick = function(e) {
+            if (!e.target.matches('.dropbtn')) {
+                var myDropdown = document.getElementById("myDropdown");
+                var myDropdown2 = document.getElementById("myDropdown2");
+                if (myDropdown.classList.contains('show')) {
+                    myDropdown.classList.remove('show');
+                }
+                if (myDropdown2.classList.contains('show')) {
+                    myDropdown2.classList.remove('show');
+                }
+            }
+        }
+    </script>
+
 </body>
 
 </html>
