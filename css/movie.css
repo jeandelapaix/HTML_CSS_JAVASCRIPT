@@ -1,0 +1,9 @@
+.tmntheader {
+    width: 100%;
+    position: relative;
+    object-fit: cover;
+}
+
+body {
+    background-image: url("../images/hw2/background.png");
+}
