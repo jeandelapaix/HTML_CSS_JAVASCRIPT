@@ -46,7 +46,7 @@ li.dropdown {
 }
 
 .dropdown-content a:hover {
-    background-color: #f1f1f1;
+    background-color: darkcyan;
 }
 
 .dropdown:hover .dropdown-content {
