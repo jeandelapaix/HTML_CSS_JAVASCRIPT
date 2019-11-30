@@ -20,7 +20,7 @@
                         <label>Name: </label>
                     </div>
                     <div class="col-75">
-                        <input type="text" />
+                        <input type="text" name="name" />
                     </div>
                 </div>
                 <div class="row">
@@ -28,8 +28,8 @@
                         <label>Gender: </label>
                     </div>
                     <div class="col-75">
-                        <input type="radio" name="gender" value="male" />
-                        <input type="radio" name="gender" value="Female" />
+                        <input type="radio" name="gender" value="male" /> Male
+                        <input type="radio" name="gender" value="Female" /> Female
                     </div>
                 </div>
                 <div class="row">
@@ -37,7 +37,7 @@
                         <label> Age: </label>
                     </div>
                     <div class="col-75">
-                        <input type="text" />
+                        <input type="text" name="age" />
                     </div>
                 </div>
                 <div class="row">
@@ -45,7 +45,7 @@
                         <label> Personality Type: </label>
                     </div>
                     <div class="col-75">
-                        <input type="text" /><span></span>
+                        <input class="mf" type="text" name="Personalitytype" />(<span class="dk">Don't know your type</span>)
                     </div>
                 </div>
 
@@ -54,7 +54,7 @@
                         <label> Favorite OS: </label>
                     </div>
                     <div class="col-75">
-                        <select>
+                        <select name="os">
                         <option>Windows</option>
                         <option>Linux</option>
                     </select>
@@ -66,11 +66,11 @@
                     </div>
                     <div class="75">
                         <div class="halffrm">
-                            <input class="cutfrm" type="text" placeholder="min" />
+                            <input name="minage" class="cutfrm" type="text" placeholder="min" />
                         </div>
                         <span>To</span>
                         <div class="halffrm">
-                            <input class="cutfrm" type="text" placeholder="max" />
+                            <input class="cutfrm" name="maxage" type="text" placeholder="max" />
                         </div>
                     </div>
                 </div>
