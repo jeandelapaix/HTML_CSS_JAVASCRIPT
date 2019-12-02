@@ -1,0 +1,13 @@
+form, .res{
+    border: 2px solid green;
+    width: 25%;
+    margin: auto;
+    padding: 10px;
+}
+input[type=text]{
+    width: 30px;
+}
+
+.res{
+    width: 35% !important;
+}
