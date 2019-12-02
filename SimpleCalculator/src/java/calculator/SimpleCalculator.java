@@ -59,10 +59,10 @@ public class SimpleCalculator extends HttpServlet {
 //            
 //            out.print("<html><head><title>Summation</title></head><body>");
 //            if (!numAdd1.equals("") || !numAdd2.equals("")) {
-//                out.print("<p>" + numAdd1 + " + " + numAdd2 + " = " + (Double.parseDouble(numAdd1) + Double.parseDouble(numAdd2)) + "</p>");
+//                out.print("<p>" + numAdd1 + " + " + numAdd2 + " = " + (Integer.parseInt(numAdd1) + Integer.parseInt(numAdd2)) + "</p>");
 //            }
 //            if (!numMult1.equals("") || !numMult2.equals("")) {
-//                out.print("<p>" + numMult1 + " * " + numMult2 + " = " + (Double.parseDouble(numMult1) * Double.parseDouble(numMult2)) + "</p>");
+//                out.print("<p>" + numMult1 + " * " + numMult2 + " = " + (Integer.parseInt(numMult1) * Integer.parseInt(numMult2)) + "</p>");
 //            }
 //            out.print("</body></html>");
 
@@ -90,56 +90,43 @@ public class SimpleCalculator extends HttpServlet {
                 inumMult2 = "1";
             }
 
-            double answer1 = 0;
-            double answer2 = 0;
+            int answer1 = 0;
+            int answer2 = 0;
             if ((!inumAdd1.equals("") || !inumAdd2.equals("")) && !inumMult1.equals("") || !inumMult2.equals("")) {
 
                 response.setContentType("text/html");
-                answer1 = (Double.parseDouble(inumAdd1) + Double.parseDouble(inumAdd2));
-                answer2 = (Double.parseDouble(inumMult1) * Double.parseDouble(inumMult2));
-//                RequestDispatcher rd = request.getRequestDispatcher("index.html");
-//                session.setAttribute("inumadd1", inumAdd1);
-//                session.setAttribute("inumadd2", inumAdd2);
-//                session.setAttribute("iaddanswer1", answer);
-//                rd.include(request, response);
+                answer1 = (Integer.parseInt(inumAdd1) + Integer.parseInt(inumAdd2));
+                answer2 = (Integer.parseInt(inumMult1) * Integer.parseInt(inumMult2));
 
                 out.print("<html><head><title>Summation</title></head><body>");
                 out.print("<h1>Improved Calculator</h1>");
                 out.print("<form action='SimpleCal' method='POST'><input type='text' name='inumadd1' value=" + inumAdd1 + "> + <input type='text' name='inumadd2' value=" + inumAdd2 + ">=<input type='text' value=" + answer1 + "><br/><br/>");
-                out.print("<input type='text' name='inummult1' value=" + inumMult1 + "> + <input type='text' name='inummult2' value=" + inumMult2 + ">=<input type='text' value=" + answer2 + "><br/><br/>");
+                out.print("<input type='text' name='inummult1' value=" + inumMult1 + "> * <input type='text' name='inummult2' value=" + inumMult2 + ">=<input type='text' value=" + answer2 + "><br/><br/>");
 
                 out.print("<input type='submit' value='Calculate'/></form></body></html>");
             } else if ((!inumAdd1.equals("") || !inumAdd2.equals("")) && (inumMult1.equals("") && inumMult2.equals(""))) {
-                answer1 = (Double.parseDouble(inumAdd1) + Double.parseDouble(inumAdd2));
+                answer1 = (Integer.parseInt(inumAdd1) + Integer.parseInt(inumAdd2));
                 out.print("<html><head><title>Summation</title></head><body>");
+                out.print("<h1>Improved Calculator</h1>");
                 out.print("<form action='SimpleCal' method='POST'><input type='text' name='inumadd1' value=" + inumAdd1 + "> + <input type='text' name='inumadd2' value=" + inumAdd2 + ">=<input type='text' value=" + answer1 + "><br/><br/>");
-                out.print("<input type='text' name='inummult1' value=''> + <input type='text' name='inummult2' value=''>=<input type='text' value=''><br/><br/>");
+                out.print("<input type='text' name='inummult1' value=''> * <input type='text' name='inummult2' value=''>=<input type='text' value=''><br/><br/>");
                 out.print("<input type='submit' value='Calculate'/></form></body></html>");
             } else if ((inumAdd1.equals("") && inumAdd2.equals("")) && (!inumMult1.equals("") && !inumMult2.equals(""))) {
-               answer2 = (Double.parseDouble(inumMult1) * Double.parseDouble(inumMult2));
+                answer2 = (Integer.parseInt(inumMult1) * Integer.parseInt(inumMult2));
                 out.print("<html><head><title>Summation</title></head><body>");
+
+                out.print("<h1>Improved Calculator</h1>");
                 out.print("<form action='SimpleCal' method='POST'><input type='text' name='inumadd1' value=''> + <input type='text' name='inumadd2' value=''>=<input type='text' value=''><br/><br/>");
-                out.print("<input type='text' name='inummult1' value=" + inumMult1 + "> + <input type='text' name='inummult2' value=" + inumMult2 + "/>=<input type='text' value=" + answer2 + "><br/><br/>");
+                out.print("<input type='text' name='inummult1' value=" + inumMult1 + "> * <input type='text' name='inummult2' value=" + inumMult2 + "/>=<input type='text' value=" + answer2 + "><br/><br/>");
                 out.print("<input type='submit' value='Calculate'/></form></body></html>");
             } else {
                 out.print("<html><head><title>Summation</title></head><body>");
+                out.print("<h1>Improved Calculator</h1>");
                 out.print("<form action='SimpleCal' method='POST'><input type='text' name='inumadd1' value=''> + <input type='text' name='inumadd2' value=''>=<input type='text' value=''><br/><br/>");
-                out.print("<input type='text' name='inummult1' value=''> + <input type='text' name='inummult2' value=''>=<input type='text' value=''><br/><br/>");
+                out.print("<input type='text' name='inummult1' value=''> * <input type='text' name='inummult2' value=''>=<input type='text' value=''><br/><br/>");
                 out.print("<input type='submit' value='Calculate'/></form></body></html>");
             }
 
-//            if (!inumMult1.equals("") || !inumMult2.equals("")) {
-//                response.setContentType("text/html");
-//                double answer = (Double.parseDouble(inumMult1) * Double.parseDouble(inumMult2));
-////                session.setAttribute("inummult1", inumMult1);
-////                session.setAttribute("inummult2", inumMult2);
-////                session.setAttribute("iaddanswer2", answer);
-////                request.setAttribute("inummult1", session.getAttribute("inummult1"));
-////                RequestDispatcher rd = request.getRequestDispatcher("index.html");
-////                rd.include(request, response);
-//                out.print("<html><head><title>Summation</title></head><body>");
-//                out.print("</body></html>");
-//            }
         } catch (Exception e) {
             e.printStackTrace();
         }
