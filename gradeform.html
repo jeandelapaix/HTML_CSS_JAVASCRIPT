@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Grade Form</title>
+    <meta charset="utf-8" />
+    <link href="css/gradecss.css" type="text/css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <form action="">
+            <fieldset>
+                <legend>Retrieve your grade:</legend>
+                <div class="input_line">
+                    <div class="input-left"> Name :</div>
+                    <div class="input-right">
+                        <input type="text" name="name">
+                    </div>
+                </div>
+
+                <div class="input_line">
+                    <div class="input-left">Student ID:</div>
+                    <div class="input-right">
+                        <input type="text" name="studentId">
+                    </div>
+                </div>
+                <div class="input_line">
+                    <div class="input-left">Select Assignment:</div>
+                    <div class="input-right">
+                        <select name="os" id="">
+                        <option value="Assignment1">Assignment 1</option>
+                        <option value="Assignment2">Assignment 2</option>
+                        <option value="Assignment3">Assignment 3</option>
+                        <option value="Assignment4">Assignment 4</option>
+                        <option value="Assignment5">Assignment 5</option>
+                        <option value="Assignment6">Assignment 6</option>
+                    </select>
+                    </div>
+                </div>
+                <div class="input_line">
+                    <div class="input-left">Select Entry:</div>
+                    <div class="input-right">
+                        <label> <input type="radio" name="grade" value=""> Feb 2019 </label>
+                        <label> <input type="radio" name="grade" value=""> May 2019 </label>
+                        <label> <input type="radio" name="grade" value=""> August 2019 </label>
+                    </div>
+                </div>
+
+                <div class="input_line">
+                    <label> <input type="checkbox" name="grade" value=""> I confirm that I am looking for my Grade</label>
+
+                </div>
+
+                <div class="input_line">
+                    <button type="submit" class="input-submit">Get Grade</button>
+
+                </div>
+            </fieldset>
+        </form>
+    </div>
+</body>
+
+</html>

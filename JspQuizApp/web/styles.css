@@ -1,0 +1,29 @@
+form, .res{
+    border: 2px solid green;
+    width: 40%;
+    margin: auto;
+    padding: 10px;
+    text-align: center;
+}
+input[type=text]{
+    width: 30px;
+}
+
+input[type=submit]{
+    width: 30%;
+    height: 50px;
+    border: none;
+    border-radius: 50px;
+    background-color: goldenrod;
+    color: white;
+    text-align: center;
+}
+
+input[type=submit]:hover{
+    background-color: gold;
+    cursor: pointer;
+}
+
+.res{
+    width: 35% !important;
+}

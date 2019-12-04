@@ -1,0 +1,37 @@
+.input-left {
+    float: left;
+    min-width: 20%;
+}
+
+.input-right {
+    margin-left: 10%;
+}
+
+.input_line {
+    margin: 5px;
+}
+
+.label-red {
+    color: rgb(68, 56, 56);
+}
+
+fieldset {
+    max-width: 40%;
+    background: rgb(248, 246, 242);
+    border-radius: 5px;
+    border: 0;
+    box-shadow: 3px 3px #999999;
+    margin: auto;
+}
+
+fieldset legend {
+    background: white;
+    box-shadow: 1px 1px #999999;
+}
+
+.input-submit {
+    background: #ffbdb7;
+    box-shadow: 1px 1px black;
+    border: 3px #999999;
+    border-radius: 2px;
+}

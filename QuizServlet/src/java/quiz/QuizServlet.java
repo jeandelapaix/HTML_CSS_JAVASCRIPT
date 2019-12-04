@@ -25,10 +25,6 @@ public class QuizServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException {
         QuizHw test = new QuizHw();
-        if (session == null) {
-            session.invalidate();
-            session = null;
-        }
         session = request.getSession();
         session.setAttribute("myquiz", test);
         test.setResult(0);
@@ -38,7 +34,7 @@ public class QuizServlet extends HttpServlet {
                     + "<link href='styles.css' rel='stylesheet' ></head><body>");
             out.print("<form method='post' action='QuizServ'>");
             out.print("<h1>The Number Quiz</h1>");
-            out.print("<p>Your current score is "+test.getResult()+"</p>");
+            out.print("<p>Your current score is " + test.getResult() + "</p>");
             out.print("<p>Guess the next number in the sequence </p>");
             out.print("<p>" + QuizHw.getQuestions()[index] + "</p>");
             out.print("Your answer: <input type='text' name='useranswer'/>");
