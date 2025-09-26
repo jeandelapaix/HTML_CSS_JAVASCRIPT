@@ -256,7 +256,11 @@ class GenericBPMPayloadBuilder {
             if (value.isObject() && !value.isArray()) {
                 flattenNode(value, properties);
             } else if (!value.isNull() && !value.asText().isEmpty()) {
-                properties.add(new NameValue(name, value.asText()));
+                // FIX: Use no-arg constructor and setters
+                NameValue nv = new NameValue();
+                nv.setName(name);
+                nv.setValue(value.asText());
+                properties.add(nv);
             }
         });
     }
@@ -352,4 +356,3 @@ class GenericBPMPayloadBuilder {
         System.out.println(updateJson);
     }
 }
-
