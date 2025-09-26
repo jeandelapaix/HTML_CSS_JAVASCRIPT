@@ -248,7 +248,7 @@
 class GenericBPMPayloadBuilder {
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private void flattenNode(JsonNode node, List<BPMProperty> properties) {
+    private void flattenNode(JsonNode node, List<NameValue> properties) {
         node.fields().forEachRemaining(entry -> {
             String name = entry.getKey();
             JsonNode value = entry.getValue();
@@ -256,13 +256,13 @@ class GenericBPMPayloadBuilder {
             if (value.isObject()) {
                 flattenNode(value, properties);
             } else if (!value.isNull() && !value.asText().isEmpty()) {
-                properties.add(new BPMProperty(name, value.asText()));
+                properties.add(new NameValue(name, value.asText()));
             }
         });
     }
 
-    public <T> List<BPMProperty> buildPropertiesFromPojo(T sourcePojo) {
-        List<BPMProperty> properties = new ArrayList<>();
+    public <T> List<NameValue> buildPropertiesFromPojo(T sourcePojo) {
+        List<NameValue> properties = new ArrayList<>();
         if (sourcePojo == null) {
             return properties;
         }
@@ -276,34 +276,36 @@ class GenericBPMPayloadBuilder {
         return properties;
     }
 
-    public <T> BPMRequest buildLaunchRequest(T sourcePojo, String processType) {
-        List<BPMProperty> propertyList = buildPropertiesFromPojo(sourcePojo);
-        ProcessProperties processProperties = new ProcessProperties(propertyList);
+    public <T> ProcessRequest buildLaunchRequest(T sourcePojo, String processType) {
+        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
+        Properties processProperties = new Properties(propertyList);
 
-        ProcessDetails details = new ProcessDetails(processProperties, processType);
+        Process details = new Process(processProperties, processType);
 
-        return new BPMRequest(details);
+        return new ProcessRequest(details);
     }
 
-    public <T> BPMRequest buildUpdateRequest(T sourcePojo, String processType, List<String> actions) {
-        List<BPMProperty> propertyList = buildPropertiesFromPojo(sourcePojo);
-        ProcessProperties processProperties = new ProcessProperties(propertyList);
+    public <T> ProcessRequest buildUpdateRequest(T sourcePojo, String processType, List<String> actions) {
+        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
+        Properties processProperties = new Properties(propertyList);
 
         BPMAction action = new BPMAction(actions);
 
-        ProcessDetails details = new ProcessDetails(processProperties, processType, action);
+        Process details = new Process(processProperties, processType, action);
 
-        return new BPMRequest(details);
+        return new ProcessRequest(details);
     }
 
     public static void main(String[] args) throws Exception {
         GenericBPMPayloadBuilder builder = new GenericBPMPayloadBuilder();
         ObjectMapper mapper = new ObjectMapper();
 
+        // 1. Fully populated input POJO (for launch request)
         Participant participant = new Participant(
             "FREDDY",
             "FRANKLINLAKES",
             "ERNEST",
+            "MR.",
             "00176243",
             "555-123-4567"
         );
@@ -316,29 +318,38 @@ class GenericBPMPayloadBuilder {
             "1010722",
             "4567890",
             "ROLLOVER_CREATED",
+            "", // assignedTo
             participant,
             "External",
             "NT124426",
+            "TT124421",
             "IRA",
             "WEB",
-            "FEDEX"
+            "FEDEX",
+            "FIDELITY INVESTMENTS",
+            "sampleTransactionId",
+            "customerId",
+            "??"
         );
 
         String processType = "CapitalizeRolloverProcess";
 
-        System.out.println("--- BPM Process LAUNCH Request Payload ---");
-        BPMRequest launchRequest = builder.buildLaunchRequest(inputPojo, processType);
+        System.out.println("--- BPM Process LAUNCH Request Payload (All fields flattened) ---");
+        ProcessRequest launchRequest = builder.buildLaunchRequest(inputPojo, processType);
         String launchJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(launchRequest);
         System.out.println(launchJson);
 
-        System.out.println("\n--- BPM Process UPDATE Request Payload ---");
+        System.out.println("\n--- BPM Process UPDATE Request Payload (Only updated fields) ---");
+        // 2. Sparsely populated input POJO (for update request)
         SampleInputPOJO updatePojo = new SampleInputPOJO();
         updatePojo.setOrchestrationID("C3K0I8OLL");
-        updatePojo.setCapitalizeStatus("AWAITING_FUND");
+        updatePojo.setCapitalizeStatus("AWAITING_FUND"); // This field is being updated
 
         List<String> actions = List.of("update");
 
-        BPMRequest updateRequest = builder.buildUpdateRequest(updatePojo, processType, actions);
+        ProcessRequest updateRequest = builder.buildUpdateRequest(updatePojo, processType, actions);
         String updateJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(updateRequest);
         System.out.println(updateJson);
     }
+}
+
