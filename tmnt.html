@@ -253,7 +253,7 @@ class GenericBPMPayloadBuilder {
             String name = entry.getKey();
             JsonNode value = entry.getValue();
 
-            if (value.isObject()) {
+            if (value.isObject() && !value.isArray()) {
                 flattenNode(value, properties);
             } else if (!value.isNull() && !value.asText().isEmpty()) {
                 properties.add(new NameValue(name, value.asText()));
