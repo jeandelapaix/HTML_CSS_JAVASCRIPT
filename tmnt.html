@@ -245,114 +245,54 @@
 </html>
 
 
-class GenericBPMPayloadBuilder {
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    private void flattenNode(JsonNode node, List<NameValue> properties) {
-        node.fields().forEachRemaining(entry -> {
-            String name = entry.getKey();
-            JsonNode value = entry.getValue();
-
-            if (value.isObject() && !value.isArray()) {
-                flattenNode(value, properties);
-            } else if (!value.isNull() && !value.asText().isEmpty()) {
-                // FIX: Use no-arg constructor and setters
-                NameValue nv = new NameValue();
-                nv.setName(name);
-                nv.setValue(value.asText());
-                properties.add(nv);
-            }
-        });
-    }
-
-    public <T> List<NameValue> buildPropertiesFromPojo(T sourcePojo) {
-        List<NameValue> properties = new ArrayList<>();
-        if (sourcePojo == null) {
-            return properties;
-        }
-
-        JsonNode rootNode = mapper.valueToTree(sourcePojo);
-
-        if (rootNode.isObject()) {
-            flattenNode(rootNode, properties);
-        }
-        
-        return properties;
-    }
-
-    public <T> ProcessRequest buildLaunchRequest(T sourcePojo, String processType) {
-        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
-        Properties processProperties = new Properties(propertyList);
-
-        Process details = new Process(processProperties, processType);
-
-        return new ProcessRequest(details);
-    }
-
-    public <T> ProcessRequest buildUpdateRequest(T sourcePojo, String processType, List<String> actions) {
-        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
-        Properties processProperties = new Properties(propertyList);
-
-        BPMAction action = new BPMAction(actions);
-
-        Process details = new Process(processProperties, processType, action);
-
-        return new ProcessRequest(details);
-    }
-
-    public static void main(String[] args) throws Exception {
-        GenericBPMPayloadBuilder builder = new GenericBPMPayloadBuilder();
-        ObjectMapper mapper = new ObjectMapper();
-
-        // 1. Fully populated input POJO (for launch request)
-        Participant participant = new Participant(
-            "FREDDY",
-            "FRANKLINLAKES",
-            "ERNEST",
-            "MR.",
-            "00176243",
-            "555-123-4567"
-        );
-
-        SampleInputPOJO inputPojo = new SampleInputPOJO(
-            "C3K0I8OLL",
-            "Asset Transfer Operations",
-            "One IRA Account Funding - Capitalize",
-            "CLIENT123",
-            "1010722",
-            "4567890",
-            "ROLLOVER_CREATED",
-            "", // assignedTo
-            participant,
-            "External",
-            "NT124426",
-            "TT124421",
-            "IRA",
-            "WEB",
-            "FEDEX",
-            "FIDELITY INVESTMENTS",
-            "sampleTransactionId",
-            "customerId",
-            "??"
-        );
-
-        String processType = "CapitalizeRolloverProcess";
-
-        System.out.println("--- BPM Process LAUNCH Request Payload (All fields flattened) ---");
-        ProcessRequest launchRequest = builder.buildLaunchRequest(inputPojo, processType);
-        String launchJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(launchRequest);
-        System.out.println(launchJson);
-
-        System.out.println("\n--- BPM Process UPDATE Request Payload (Only updated fields) ---");
-        // 2. Sparsely populated input POJO (for update request)
-        SampleInputPOJO updatePojo = new SampleInputPOJO();
-        updatePojo.setOrchestrationID("C3K0I8OLL");
-        updatePojo.setCapitalizeStatus("AWAITING_FUND"); // This field is being updated
-
-        List<String> actions = List.of("update");
-
-        ProcessRequest updateRequest = builder.buildUpdateRequest(updatePojo, processType, actions);
-        String updateJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(updateRequest);
-        System.out.println(updateJson);
-    }
-}
+SELECT
+    t2.pay_cat AS payment_categories, -- Replaced the LISTAGG CTE
+    t1.mces_account_name AS accountName,
+    t1.mces_bank_id,
+    t1.mces_account_number AS accountnumber,
+    t1.resource_type AS type,
+    t1.mces_dda_system AS dda_system,
+    t1.country,
+    t2.attribute_pkref AS attribute, -- Attribute_pkref used as attribute
+    CASE t3.limit_currency
+        WHEN 'COMPANY' THEN 'COMPANY'
+        WHEN 'ACCOUNT' THEN NVL(t1.mces_currency, 'USD')
+        ELSE t3.limit_currency
+    END AS currency,
+    t1.mces_currency AS accountCurrency,
+    t1.street_address_1,
+    t1.street_address_2,
+    t1.street_address_3,
+    t1.street_address_4,
+    t1.city,
+    t1.state,
+    t1.postal_code,
+    t1.mces_lob AS line_of_business,
+    NVL(t4.ur_preferred_account_name, ' ') AS user_preferred_account_name, -- User Resource data (ur)
+    NVL(t5.cr_preferred_account_name, ' ') AS company_preferred_account_name, -- Comp Resource data (cr)
+    t1.business_indicator,
+    t1.account_residency,
+    t1.multi_bank_flag,
+    NVL(t1.partner_bnk_acct_num, ' ') AS iban_number
+FROM
+    mcesserv.mces_resource t1 -- mr (Provides account details)
+INNER JOIN
+    USER_ACTIVITY_RESOURCE_CPOPYMTS t2 -- New table (Consolidates user, comp, activity, and resource links)
+    ON t1.resource_pk = t2.user_res_pkref
+LEFT JOIN
+    mcesserv.attribute_user_account_limit t3 -- aual (Still needed for limit_currency and checking the limit_type)
+    ON t3.active_user_pkref = t2.user_pkref
+    AND t3.active_att_pkref = t2.attribute_pkref
+LEFT JOIN
+    mcesserv.user_resource t4 -- ur (For user preferred account name)
+    ON t4.ures_pk = t2.user_res_pkref
+LEFT JOIN
+    mcesserv.comp_resource t5 -- cr (For company preferred account name)
+    ON t5.cres_pk = t2.comp_res_pkref -- Assuming COMP_RES_PKREF is the correct column on the new table
+WHERE
+    t2.user_id = 'elu12345'
+    AND t2.comp_id = '1661inc1'
+    AND t2.limit_type = 'USER_DEFAULT' -- Check on the new table
+    AND t3.limit_type = 'USER_DEFAULT' -- Check on the aual table (if still necessary for logic)
+ORDER BY
+    t1.mces_account_number;
