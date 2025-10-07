@@ -62,3 +62,53 @@
 </body>
 
 </html>
+
+private void flattenNode(JsonNode node, List<NameValue> properties) {
+    node.fields().forEachRemaining(entry -> {
+        String name = entry.getKey();
+        JsonNode value = entry.getValue();
+
+        // Case 1: Nested object (recurse)
+        if (value.isObject() && !value.isArray()) {
+            flattenNode(value, properties);
+        }
+
+        // Case 2: "property" array case (special BPM structure)
+        else if (name.equals("property") && value.isArray()) {
+            for (JsonNode arrayElement : value) {
+                if (arrayElement.isObject()) {
+                    String propName = arrayElement.has("name") ? arrayElement.get("name").asText() : null;
+                    String propValue = arrayElement.has("value") ? arrayElement.get("value").asText() : null;
+                    if (propName != null && propValue != null) {
+                        NameValue nv = new NameValue();
+                        nv.setName(propName);
+                        nv.setValue(propValue);
+                        properties.add(nv);
+                    }
+                }
+            }
+        }
+
+        // Case 3: Simple field (string, number, boolean, etc.)
+        else if (!value.isNull() && !value.isContainerNode()) {
+            NameValue nv = new NameValue();
+            nv.setName(name);
+            nv.setValue(value.asText());
+            properties.add(nv);
+        }
+
+        // Case 4: Array of primitive values (not property)
+        else if (value.isArray()) {
+            for (JsonNode arrayElement : value) {
+                if (!arrayElement.isNull() && !arrayElement.isContainerNode()) {
+                    NameValue nv = new NameValue();
+                    nv.setName(name);
+                    nv.setValue(arrayElement.asText());
+                    properties.add(nv);
+                } else if (arrayElement.isObject()) {
+                    flattenNode(arrayElement, properties);
+                }
+            }
+        }
+    });
+}
