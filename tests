@@ -1,0 +1,226 @@
+package org.tiaa.ira.funding.request.builder;
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.stereotype.Component;
+import org.tiaa.esb.activiti.types.*;
+import org.tiaa.esb.activiti.types.Process;
+import org.tiaa.esb.activiti.types.Properties;
+import org.tiaa.ira.funding.model.capitalize.CapitalizeStatus;
+import org.tiaa.ira.funding.util.DateUtil;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.List;
+
+@Component
+public class BPMPayloadBuilder {
+    private final static ObjectMapper MAPPER = new ObjectMapper();
+
+    private void flattenNode(JsonNode node, List<NameValue> properties) {
+        node.fields().forEachRemaining(entry -> {
+            String name = entry.getKey();
+            JsonNode value = entry.getValue();
+
+            if (value.isObject() && !value.isArray()) {
+                flattenNode(value, properties);
+            } else if (!value.isNull() && !value.asText().isEmpty()) {
+                addPropertyToBPMPayload(name, value.asText(), properties);
+                mapMissingFields(properties, name, value);
+            } else if(name.equals("property") && value.isArray()){
+                //flattenNode(value,properties);
+                if(!value.isNull() && value.isArray()){
+                    for(JsonNode arrayElement : value){
+                        //Recursively flatten if element is an object
+                        if(arrayElement.isObject()) {
+                            NameValue nv = new NameValue();
+                            arrayElement.fields().forEachRemaining(aE -> {
+                                if(aE.getKey().equals("name"))
+                                    nv.setName(aE.getValue().asText());
+                                else if(aE.getKey().equals("value")){
+                                    nv.setValue(aE.getValue().asText());
+                                }
+                                    });
+                                properties.add(nv);
+                          //  flattenNode(arrayElement, properties);
+                        } else if (!arrayElement.isNull()){
+                            NameValue nv = new NameValue();
+                            nv.setName(name);
+                            nv.setValue(arrayElement.asText());
+                            properties.add(nv);
+                        }
+                    }
+                }
+             //   addProperties(value,properties);
+            }
+        });
+    }
+
+    private static void mapMissingFields(List<NameValue> properties, String name, JsonNode value) {
+        if (StringUtils.equalsIgnoreCase("requestId", name)) {
+            addPropertyToBPMPayload("requestId", value.textValue(), properties);
+            addPropertyToBPMPayload("requestIdentifier", value.textValue(), properties);
+        }
+        buildAndPopulateStatus(properties, name, value);
+        populateDepartment(properties, name, value);
+    }
+
+    private static void populateDepartment(List<NameValue> properties, String name, JsonNode value) {
+//        if (StringUtils.equalsIgnoreCase("businessArea", name)) {
+            addPropertyToBPMPayload("department", "Asset Transfer Operations", properties);
+//        }
+    }
+
+    private static void buildAndPopulateStatus(List<NameValue> properties, String name, JsonNode value) {
+        if (StringUtils.equalsIgnoreCase("capitalizeStatus", name)) {
+            if (isRolloverSaved(value) || isRolloverSubmitted(value)) {
+                addPropertyToBPMPayload("caseState", "IN PROCESS", properties);
+            }
+            if (isRolloverCancelled(value)) {
+                addPropertyToBPMPayload("caseState", "CANCELLED", properties);
+            }
+            if (isRolloverCompleted(value)) {
+                addPropertyToBPMPayload("caseState", "COMPLETED", properties);
+            }
+        }
+    }
+
+    private static boolean isRolloverSaved(JsonNode value) {
+        return StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.ROLLOVER_CREATED.name())
+                || StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.INCOMPLETE.name())
+                || StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.REQUIRES_ACTION.name());
+    }
+
+    private static boolean isRolloverSubmitted(JsonNode value) {
+        return StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.ROLLOVER_SUBMITTED.name());
+    }
+
+    private static boolean isRolloverProcessing(JsonNode value) {
+        return StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.PROCESSING.name());
+    }
+
+    private static boolean isRolloverCompleted(JsonNode value) {
+        return StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.COMPLETED.name());
+    }
+
+    private static boolean isRolloverCancelled(JsonNode value) {
+        return StringUtils.equalsIgnoreCase(value.textValue(), CapitalizeStatus.CANCELED.name());
+    }
+
+
+
+    public <T> List<NameValue> buildPropertiesFromPojo(T sourcePojo) {
+        List<NameValue> properties = new ArrayList<>();
+        if (sourcePojo == null) {
+            return properties;
+        }
+        JsonNode rootNode = MAPPER.valueToTree(sourcePojo);
+        if (rootNode.isObject()) {
+            flattenNode(rootNode, properties);
+        }
+
+        addOtherProperties(properties);
+        return properties;
+    }
+
+    private static void addOtherProperties(List<NameValue> properties) {
+        addPropertyToBPMPayload("requestType", "One IRA Account Funding - Capitalize", properties);
+        addPropertyToBPMPayload("receivedDate", getTodayDateTime(), properties);
+        addPropertyToBPMPayload("receivedDateTime", getTodayDateTime(), properties);
+        addPropertyToBPMPayload("registrationType", "TIAA Capitalize IRA", properties);
+        addPropertyToBPMPayload("dateCreated", getTodayDateTime(), properties);
+        addPropertyToBPMPayload("lastModified", getTodayDateTime(), properties);
+        addPropertyToBPMPayload("requestTypedate", getTodayDateTime(), properties);
+    }
+
+    public static void addPropertyToBPMPayload(String name, String value, List<NameValue> properties) {
+        NameValue nameValue = new NameValue();
+        nameValue.setName(name);
+        nameValue.setValue(value);
+        properties.add(nameValue);
+    }
+
+    public <T> ProcessRequest buildLaunchRequest(T sourcePojo, String processType) {
+        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
+        Properties processProperties = new Properties();
+        processProperties.getProperty().addAll(propertyList);
+
+        org.tiaa.esb.activiti.types.Process details = new org.tiaa.esb.activiti.types.Process();
+        details.setProcessType(processType);
+        details.setProcessProperties(processProperties);
+        ProcessRequest request = new ProcessRequest();
+        request.setProcess(details);
+        buildNotes(details, propertyList);
+        buildTasks(details, sourcePojo);
+        return request;
+    }
+
+    private <T> void buildNotes(Process process, T sourcePojo) {
+        JsonNode rootNode = MAPPER.valueToTree(sourcePojo);
+
+        if (rootNode.isObject()) {
+            if (isRolloverSaved(rootNode)) {
+                Comment comment = new Comment();
+                comment.setCreateDate(DateUtil.getdate());
+                comment.setDesc("Request has been created with Capitalize");
+                comment.setMessage("Request has been created with Capitalize");
+                process.getComments().getComment().add(comment);
+            }
+        }
+    }
+
+    private <T> void buildTasks(Process process, T sourcePojo) {
+        JsonNode rootNode = MAPPER.valueToTree(sourcePojo);
+
+        if (rootNode.isObject()) {
+            if (isRolloverSaved(rootNode)) {
+                Comment comment = new Comment();
+                comment.setCreateDate(DateUtil.getdate());
+                comment.setDesc("Request has been created with Capitalize");
+                comment.setMessage("Request has been created with Capitalize");
+                process.getComments().getComment().add(comment);
+                Task task = new Task();
+                task.setCreateDate(DateUtil.getdate());
+                Comments comments = new Comments();
+                comments.getComment().add(comment);
+                task.setComments(comments);
+                task.setDescription("Request has been created with Capitalize");
+                process.getTasks().getTask().add(task);
+            }
+        }
+    }
+
+    public <T> ProcessRequest buildUpdateRequest(T sourcePojo,
+                                                 String processType,
+                                                 String processId) {
+        List<String> actions = List.of("update");
+        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
+        Properties processProperties = new Properties();
+        processProperties.getProperty().addAll(propertyList);
+        org.tiaa.esb.activiti.types.List action = new org.tiaa.esb.activiti.types.List();
+        action.getItem().addAll(actions);
+
+        org.tiaa.esb.activiti.types.Process details = new org.tiaa.esb.activiti.types.Process();
+        details.setProcessType(processType);
+        details.setProcessProperties(processProperties);
+        details.setProcessId(processId);
+        details.setAction(action);
+        ProcessRequest request = new ProcessRequest();
+
+        request.setProcess(details);
+        return request;
+    }
+
+    private static String getToday() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    }
+
+    private static String getTodayDateTime() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm:ss a"));
+    }
+
+}
