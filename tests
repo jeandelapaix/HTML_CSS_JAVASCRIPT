@@ -1,250 +1,55 @@
-package org.tiaa.ira.funding.request.builder;
+package org.tiaa.ira.funding.util;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang.StringUtils;
-import org.springframework.stereotype.Component;
-import org.tiaa.esb.activiti.types.*;
-import org.tiaa.esb.activiti.types.Process;
-import org.tiaa.esb.activiti.types.Properties;
 import org.tiaa.ira.funding.model.capitalize.CapitalizeStatus;
-import org.tiaa.ira.funding.util.DateUtil;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+public final class StatusMappingUtil {
 
-@Component
-public class BPMPayloadBuilder {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    // Capitalize → CTH (launch-time)
+    private static final Map<CapitalizeStatus, String> CAPITALIZE_TO_CTH = new EnumMap<>(CapitalizeStatus.class);
+    // Capitalize → Batch (launch-time)
+    private static final Map<CapitalizeStatus, String> CAPITALIZE_TO_BATCH = new EnumMap<>(CapitalizeStatus.class);
 
-    /** Core flattener: handles primitives, nested objects, arrays, and the BPM "property" array shape. */
-    private void flattenNode(JsonNode node, List<NameValue> properties) {
-        node.fields().forEachRemaining(entry -> {
-            String name = entry.getKey();
-            JsonNode value = entry.getValue();
+    // Batch(status property) → CTH (update-time)
+    private static final Map<String, String> BATCH_TO_CTH = new HashMap<>();
+    // Batch(status property) → next Batch registration (update-time)
+    private static final Map<String, String> BATCH_TO_NEXT_BATCH = new HashMap<>();
 
-            // Special case: BPM property array: [{ "name": "...", "value": "..."}, ...]
-            if ("property".equals(name) && value != null && value.isArray()) {
-                for (JsonNode arrayElement : value) {
-                    if (arrayElement != null && arrayElement.isObject()) {
-                        String propName  = arrayElement.has("name")  ? arrayElement.get("name").asText(null)  : null;
-                        String propValue = arrayElement.has("value") ? arrayElement.get("value").asText(null) : null;
-                        if (StringUtils.isNotBlank(propName) && StringUtils.isNotBlank(propValue)) {
-                            addPropertyToBPMPayload(propName, propValue, properties);
-                            // allow downstream hard-coded/derived mapping hooks to run too
-                            mapMissingFields(properties, propName, arrayElement.get("value"));
-                        }
-                    } else if (arrayElement != null && !arrayElement.isContainerNode()) {
-                        addPropertyToBPMPayload(name, arrayElement.asText(), properties);
-                        mapMissingFields(properties, name, arrayElement);
-                    } else if (arrayElement != null && arrayElement.isObject()) {
-                        flattenNode(arrayElement, properties);
-                    }
-                }
-                return;
-            }
+    static {
+        // Launch: caller already set CTH=SUBMITTED; we advance to AWAITING_FUNDS
+        CAPITALIZE_TO_CTH.put(CapitalizeStatus.ROLLOVER_SUBMITTED, "AWAITING_FUNDS");
+        CAPITALIZE_TO_BATCH.put(CapitalizeStatus.ROLLOVER_SUBMITTED, "AWAITING_FUNDS");
 
-            // Regular object → recurse
-            if (value != null && value.isObject()) {
-                flattenNode(value, properties);
-                return;
-            }
+        // Updates from Batch (status comes from properties.status)
+        BATCH_TO_CTH.put("FUND_RECEIVED", "AWAITING_FUNDS_POSTING");
+        BATCH_TO_NEXT_BATCH.put("FUND_RECEIVED", "AWAITING_FUNDS_POSTING");
 
-            // Array (non "property") → flatten elements (objects recurse, primitives add as repeated fields)
-            if (value != null && value.isArray()) {
-                for (JsonNode el : value) {
-                    if (el == null || el.isNull()) continue;
-                    if (el.isObject() || el.isArray()) {
-                        flattenNode(el, properties);
-                    } else if (!el.asText("").isEmpty()) {
-                        addPropertyToBPMPayload(name, el.asText(), properties);
-                        mapMissingFields(properties, name, el);
-                    }
-                }
-                return;
-            }
+        BATCH_TO_CTH.put("FUND_POSTED", "COMPLETED");
 
-            // Primitive value
-            if (value != null && !value.isNull()) {
-                String text = value.asText("");
-                if (!text.isEmpty()) {
-                    addPropertyToBPMPayload(name, text, properties);
-                    mapMissingFields(properties, name, value);
-                }
-            }
-        });
+        BATCH_TO_CTH.put("CANCELLED", "CANCELED");
+        BATCH_TO_CTH.put("CANCELLED_INELIGIBLE", "CANCELED");
     }
 
-    /** Central place for any "manual" or derived fields you want to add/override. */
-    private static void mapMissingFields(List<NameValue> properties, String name, JsonNode value) {
-        // Mirror requestId
-        if (StringUtils.equalsIgnoreCase("requestId", name)) {
-            addOrReplace("requestId", value.textValue(), properties);
-            addOrReplace("requestIdentifier", value.textValue(), properties);
-        }
+    private StatusMappingUtil() {}
 
-        // Derived caseState from capitalizeStatus (from either top-level or property array)
-        if (StringUtils.equalsIgnoreCase("capitalizeStatus", name)) {
-            String status = value.textValue();
-            if (isRolloverSaved(status) || isRolloverSubmitted(status)) {
-                addOrReplace("caseState", "IN PROCESS", properties);
-            } else if (isRolloverCancelled(status)) {
-                addOrReplace("caseState", "CANCELLED", properties);
-            } else if (isRolloverCompleted(status)) {
-                addOrReplace("caseState", "COMPLETED", properties);
-            }
-        }
-
-        // Hard-coded department (or make conditional if you prefer)
-        populateDepartment(properties);
+    // 1) parse external string into CapitalizeStatus (optional helper)
+    public static CapitalizeStatus getCapitalizeStatus(String status) {
+        try { return CapitalizeStatus.valueOf(status); } catch (Exception e) { return null; }
     }
 
-    private static void populateDepartment(List<NameValue> properties) {
-        addOrReplace("department", "Asset Transfer Operations", properties);
-    }
-
-    // ----- Status helpers (accept String to work both from primitives and property array values)
-    private static boolean isRolloverSaved(String v) {
-        return StringUtils.equalsIgnoreCase(v, CapitalizeStatus.ROLLOVER_CREATED.name())
-            || StringUtils.equalsIgnoreCase(v, CapitalizeStatus.INCOMPLETE.name())
-            || StringUtils.equalsIgnoreCase(v, CapitalizeStatus.REQUIRES_ACTION.name());
-    }
-    private static boolean isRolloverSubmitted(String v) {
-        return StringUtils.equalsIgnoreCase(v, CapitalizeStatus.ROLLOVER_SUBMITTED.name());
-    }
-    private static boolean isRolloverCompleted(String v) {
-        return StringUtils.equalsIgnoreCase(v, CapitalizeStatus.COMPLETED.name());
-    }
-    private static boolean isRolloverCancelled(String v) {
-        return StringUtils.equalsIgnoreCase(v, CapitalizeStatus.CANCELED.name());
-    }
-
-    /** Build NameValue list from any POJO. */
-    public <T> List<NameValue> buildPropertiesFromPojo(T sourcePojo) {
-        List<NameValue> properties = new ArrayList<>();
-        if (sourcePojo == null) return properties;
-
-        JsonNode rootNode = MAPPER.valueToTree(sourcePojo);
-        if (rootNode.isObject()) {
-            flattenNode(rootNode, properties);
-        }
-
-        addOtherProperties(properties);
-        return properties;
-    }
-
-    /** Add hard-coded/request-level fields that must always be present. */
-    private static void addOtherProperties(List<NameValue> properties) {
-        addOrReplace("requestType", "One IRA Account Funding - Capitalize", properties);
-        addOrReplace("registrationType", "TIAA Capitalize IRA", properties);
-
-        String now = getTodayDateTime();
-        addOrReplace("receivedDate", now, properties);
-        addOrReplace("receivedDateTime", now, properties);
-        addOrReplace("dateCreated", now, properties);
-        addOrReplace("lastModified", now, properties);
-        addOrReplace("requestTypedate", now, properties);
-    }
-
-    /** Safe add (replace if exists) */
-    public static void addOrReplace(String name, String value, List<NameValue> properties) {
-        for (NameValue nv : properties) {
-            if (name.equals(nv.getName())) {
-                nv.setValue(value);
-                return;
-            }
-        }
-        addPropertyToBPMPayload(name, value, properties);
-    }
-
-    public static void addPropertyToBPMPayload(String name, String value, List<NameValue> properties) {
-        NameValue nv = new NameValue();
-        nv.setName(name);
-        nv.setValue(value);
-        properties.add(nv);
-    }
-
-    /** Build a launch request (derives notes/tasks from resolved status). */
-    public <T> ProcessRequest buildLaunchRequest(T sourcePojo, String processType) {
-        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
-        Properties processProperties = new Properties();
-        processProperties.getProperty().addAll(propertyList);
-
-        Process details = new Process();
-        details.setProcessType(processType);
-        details.setProcessProperties(processProperties);
-
-        ProcessRequest request = new ProcessRequest();
-        request.setProcess(details);
-
-        String status = findProperty(propertyList, "capitalizeStatus");
-        buildNotes(details, status);
-        buildTasks(details, status);
-
-        return request;
-    }
-
-    /** Build an update request. */
-    public <T> ProcessRequest buildUpdateRequest(T sourcePojo, String processType, String processId) {
-        List<NameValue> propertyList = buildPropertiesFromPojo(sourcePojo);
-
-        Properties processProperties = new Properties();
-        processProperties.getProperty().addAll(propertyList);
-
-        org.tiaa.esb.activiti.types.List action = new org.tiaa.esb.activiti.types.List();
-        action.getItem().add("update");
-
-        Process details = new Process();
-        details.setProcessType(processType);
-        details.setProcessProperties(processProperties);
-        details.setProcessId(processId);
-        details.setAction(action);
-
-        ProcessRequest request = new ProcessRequest();
-        request.setProcess(details);
-        return request;
-    }
-
-    // ----- Notes & Tasks use the resolved status (not the whole root node)
-    private void buildNotes(Process process, String capitalizeStatus) {
-        if (isRolloverSaved(capitalizeStatus) || isRolloverSubmitted(capitalizeStatus)) {
-            Comment comment = new Comment();
-            comment.setCreateDate(DateUtil.getdate());
-            comment.setDesc("Request has been created with Capitalize");
-            comment.setMessage("Request has been created with Capitalize");
-            process.getComments().getComment().add(comment);
-        }
-    }
-
-    private void buildTasks(Process process, String capitalizeStatus) {
-        if (isRolloverSaved(capitalizeStatus) || isRolloverSubmitted(capitalizeStatus)) {
-            Comment comment = new Comment();
-            comment.setCreateDate(DateUtil.getdate());
-            comment.setDesc("Request has been created with Capitalize");
-            comment.setMessage("Request has been created with Capitalize");
-
-            Task task = new Task();
-            task.setCreateDate(DateUtil.getdate());
-            Comments comments = new Comments();
-            comments.getComment().add(comment);
-            task.setComments(comments);
-            task.setDescription("Request has been created with Capitalize");
-
-            process.getComments().getComment().add(comment);
-            process.getTasks().getTask().add(task);
-        }
-    }
-
-    // ----- Helpers
-    private static String findProperty(List<NameValue> properties, String key) {
-        for (NameValue nv : properties) {
-            if (key.equals(nv.getName())) return nv.getValue();
-        }
+    // 2) map to CTH — accepts either CapitalizeStatus (launch) or batch status String (update)
+    public static String getCTHStatus(Object status) {
+        if (status instanceof CapitalizeStatus cap) return CAPITALIZE_TO_CTH.get(cap);
+        if (status instanceof String s)            return BATCH_TO_CTH.get(s);
         return null;
     }
 
-    private static String getTodayDateTime() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm:ss a"));
+    // 3) map to Batch registration — accepts either CapitalizeStatus (launch) or batch status String (update)
+    public static String getBatchProcessorStatus(Object status) {
+        if (status instanceof CapitalizeStatus cap) return CAPITALIZE_TO_BATCH.get(cap);
+        if (status instanceof String s)            return BATCH_TO_NEXT_BATCH.get(s);
+        return null;
     }
 }
