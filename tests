@@ -1,55 +1,142 @@
-package org.tiaa.ira.funding.util;
+@Service
+@RequiredArgsConstructor
+public class BatchRegistryService {
 
-import org.tiaa.ira.funding.model.capitalize.CapitalizeStatus;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.Map;
+    private final PostgreSqlService batchRegistryRepo;
+    private final BatchRegistryValidator validator;
 
-public final class StatusMappingUtil {
+    public BatchRegistryResponse createBatchRegistry(BatchRegistryEntity batchRegistryEntity) {
+        try {
+            // Custom validation
+            validator.validate(batchRegistryEntity);
 
-    // Capitalize → CTH (launch-time)
-    private static final Map<CapitalizeStatus, String> CAPITALIZE_TO_CTH = new EnumMap<>(CapitalizeStatus.class);
-    // Capitalize → Batch (launch-time)
-    private static final Map<CapitalizeStatus, String> CAPITALIZE_TO_BATCH = new EnumMap<>(CapitalizeStatus.class);
+            int result = batchRegistryRepo.insertOrUpdateBatchRegistry(batchRegistryEntity);
 
-    // Batch(status property) → CTH (update-time)
-    private static final Map<String, String> BATCH_TO_CTH = new HashMap<>();
-    // Batch(status property) → next Batch registration (update-time)
-    private static final Map<String, String> BATCH_TO_NEXT_BATCH = new HashMap<>();
+            if (result > 0) {
+                return BatchRegistryResponse.builder()
+                        .status("SUCCESS")
+                        .message("Batch Registry Successful")
+                        .processId(batchRegistryEntity.getProcessId())
+                        .build();
+            } else {
+                return BatchRegistryResponse.builder()
+                        .status("EXISTS")
+                        .message("Record already exists with same status")
+                        .processId(batchRegistryEntity.getProcessId())
+                        .build();
+            }
 
-    static {
-        // Launch: caller already set CTH=SUBMITTED; we advance to AWAITING_FUNDS
-        CAPITALIZE_TO_CTH.put(CapitalizeStatus.ROLLOVER_SUBMITTED, "AWAITING_FUNDS");
-        CAPITALIZE_TO_BATCH.put(CapitalizeStatus.ROLLOVER_SUBMITTED, "AWAITING_FUNDS");
-
-        // Updates from Batch (status comes from properties.status)
-        BATCH_TO_CTH.put("FUND_RECEIVED", "AWAITING_FUNDS_POSTING");
-        BATCH_TO_NEXT_BATCH.put("FUND_RECEIVED", "AWAITING_FUNDS_POSTING");
-
-        BATCH_TO_CTH.put("FUND_POSTED", "COMPLETED");
-
-        BATCH_TO_CTH.put("CANCELLED", "CANCELED");
-        BATCH_TO_CTH.put("CANCELLED_INELIGIBLE", "CANCELED");
+        } catch (IllegalArgumentException e) {
+            return createFailureResponse(batchRegistryEntity, "Validation Failed: " + e.getMessage());
+        } catch (Exception e) {
+            return createFailureResponse(batchRegistryEntity, "Batch Registry Failed: " + e.getMessage());
+        }
     }
 
-    private StatusMappingUtil() {}
+    private static BatchRegistryResponse createFailureResponse(BatchRegistryEntity batchRegistryEntity, String message) {
+        return BatchRegistryResponse.builder()
+                .status("FAILURE")
+                .message(message)
+                .processId(batchRegistryEntity.getProcessId())
+                .build();
+    }
+}
 
-    // 1) parse external string into CapitalizeStatus (optional helper)
-    public static CapitalizeStatus getCapitalizeStatus(String status) {
-        try { return CapitalizeStatus.valueOf(status); } catch (Exception e) { return null; }
+
+public int insertOrUpdateBatchRegistry(BatchRegistryEntity entity) {
+    // Check if record already exists
+    String checkSql = """
+        SELECT status FROM ira_batch.ira_batchregistry 
+        WHERE pin = ? AND transaction_id = ? AND process_id = ?
+        """;
+
+    List<String> existingStatuses = jdbcTemplate.query(checkSql, 
+        new Object[]{entity.getPin(), entity.getTransactionId(), entity.getProcessId()},
+        (rs, rowNum) -> rs.getString("status"));
+
+    // Record exists
+    if (!existingStatuses.isEmpty()) {
+        String existingStatus = existingStatuses.get(0);
+
+        if (existingStatus != null && existingStatus.equalsIgnoreCase(entity.getStatus())) {
+            // Same status → do nothing, return 0 as “already exists”
+            return 0;
+        }
+
+        // Different status → update record
+        String updateSql = """
+            UPDATE ira_batch.ira_batchregistry
+            SET process_name = ?, status = ?, updated_on = ?, request_type = ?, 
+                process_type = ?, sub_plan = ?, part_id = ?
+            WHERE pin = ? AND transaction_id = ? AND process_id = ?
+            """;
+
+        return jdbcTemplate.update(updateSql, ps -> {
+            ps.setString(1, entity.getProcessName());
+            ps.setString(2, entity.getStatus());
+            ps.setObject(3, entity.getUpdatedOn());
+            ps.setString(4, entity.getRequestType());
+            ps.setString(5, entity.getProcessType());
+            ps.setString(6, entity.getSubPlan());
+            ps.setString(7, entity.getPartId());
+            ps.setString(8, entity.getPin());
+            ps.setString(9, entity.getTransactionId());
+            ps.setString(10, entity.getProcessId());
+        });
     }
 
-    // 2) map to CTH — accepts either CapitalizeStatus (launch) or batch status String (update)
-    public static String getCTHStatus(Object status) {
-        if (status instanceof CapitalizeStatus cap) return CAPITALIZE_TO_CTH.get(cap);
-        if (status instanceof String s)            return BATCH_TO_CTH.get(s);
-        return null;
+    // Insert new record if not exists
+    String insertSql = """
+        INSERT INTO ira_batch.ira_batchregistry
+            (pin, transaction_id, process_id, process_name, status, created_on, updated_on,
+             request_type, process_type, sub_plan, part_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """;
+
+    return jdbcTemplate.update(insertSql, ps -> {
+        ps.setString(1, entity.getPin());
+        ps.setString(2, entity.getTransactionId());
+        ps.setString(3, entity.getProcessId());
+        ps.setString(4, entity.getProcessName());
+        ps.setString(5, entity.getStatus());
+        ps.setObject(6, entity.getCreatedOn());
+        ps.setObject(7, entity.getUpdatedOn());
+        ps.setString(8, entity.getRequestType());
+        ps.setString(9, entity.getProcessType());
+        ps.setString(10, entity.getSubPlan());
+        ps.setString(11, entity.getPartId());
+    });
+}
+package org.tiaa.irabatchprocess.validator;
+
+import org.springframework.stereotype.Component;
+import org.tiaa.irabatchprocess.entity.BatchRegistryEntity;
+
+@Component
+public class BatchRegistryValidator {
+
+    public void validate(BatchRegistryEntity entity) {
+        if (isBlank(entity.getProcessType())) {
+            throw new IllegalArgumentException("processType is mandatory");
+        }
+        if (isBlank(entity.getProcessName())) {
+            throw new IllegalArgumentException("processName is mandatory");
+        }
+        if (isBlank(entity.getRequestType())) {
+            throw new IllegalArgumentException("requestType is mandatory");
+        }
+        if (isBlank(entity.getPin())) {
+            throw new IllegalArgumentException("pin is mandatory");
+        }
+        if (isBlank(entity.getTransactionId())) {
+            throw new IllegalArgumentException("transactionId is mandatory");
+        }
+        if (isBlank(entity.getProcessId())) {
+            throw new IllegalArgumentException("processId is mandatory");
+        }
     }
 
-    // 3) map to Batch registration — accepts either CapitalizeStatus (launch) or batch status String (update)
-    public static String getBatchProcessorStatus(Object status) {
-        if (status instanceof CapitalizeStatus cap) return CAPITALIZE_TO_BATCH.get(cap);
-        if (status instanceof String s)            return BATCH_TO_NEXT_BATCH.get(s);
-        return null;
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 }
