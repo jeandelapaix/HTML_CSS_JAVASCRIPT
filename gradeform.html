@@ -63,27 +63,49 @@
 
 </html>
 
-public String buildLoanDDAMappingQuery(@Param("compId") String compId,
-                                       @Param("userId") String userId) {
-    return """
-        WITH active_company AS (
-            SELECT COMP_ID
-            FROM mceserv.MCES_COMPANY CA
-            INNER JOIN mceserv.COMPANY_DETAILS CD ON CA.COMP_PK = CD.ACTIVE_COMP_PKREF
-            WHERE CA.COMP_ID = #{compId}
-            AND CD.STATUS_CODE = 'Active'
-        )
-        SELECT CA.COMP_ID AS compId, CD.STATUS_CODE AS compStatus, MU.USER_ID AS userId, MUS.USER_STATUS_CODE AS userStatus
-        FROM active_company CA
-        INNER JOIN mceserv.MCES_USER MU ON MU.USER_ID = #{userId}
-        INNER JOIN mceserv.USER_STATUS MUS ON MU.USER_PK = MUS.ACTIVE_USER_PKREF
-        INNER JOIN mceserv.COMP_RESOURCE CR ON CA.COMP_ID = CR.COMP_ID
-        INNER JOIN mceserv.MCES_RESOURCE MR ON MR.RESOURCE_PK = CR.RESOURCE_PKREF
-        INNER JOIN mceserv.RESOURCE_ACCOUNT_LOAN RAL ON RAL.RESOURCE_PKREF = MR.RESOURCE_PK
-        WHERE MUS.USER_STATUS_CODE = 'Active'
-        AND MR.RESOURCE_TYPE IN ('LOAN','US_DDA')
-        AND RAL.LOAN_SYSTEM = 'LOANIQ'
-        AND EXISTS (SELECT 1 FROM active_company)
-    """;
+package com.mceserv.repository.provider;
+
+import org.apache.ibatis.annotations.Param;
+
+public class LoanDDAMappingProvider {
+
+    public String buildLoanDDAMappingQuery(@Param("compId") String compId,
+                                           @Param("userId") String userId) {
+
+        StringBuilder sql = new StringBuilder();
+
+        sql.append("WITH active_company AS (")
+           .append(" SELECT CA.COMP_ID ")
+           .append(" FROM mceserv.MCES_COMPANY CA ")
+           .append(" INNER JOIN mceserv.COMPANY_DETAILS CD ")
+           .append("   ON CA.COMP_PK = CD.ACTIVE_COMP_PKREF ")
+           .append(" WHERE CA.COMP_ID = #{compId} ")
+           .append("   AND CD.STATUS_CODE = 'Active'")
+           .append(") ")
+           .append("SELECT CA.COMP_ID AS compId, ")
+           .append("       CD.STATUS_CODE AS compStatus, ")
+           .append("       MU.USER_ID AS userId, ")
+           .append("       MUS.USER_STATUS_CODE AS userStatus ")
+           .append("FROM active_company CA ")
+           .append("INNER JOIN mceserv.MCES_USER MU ")
+           .append("   ON MU.USER_ID = #{userId} ")
+           .append("INNER JOIN mceserv.USER_STATUS MUS ")
+           .append("   ON MU.USER_PK = MUS.ACTIVE_USER_PKREF ")
+           .append("INNER JOIN mceserv.COMP_RESOURCE CR ")
+           .append("   ON CA.COMP_ID = CR.COMP_ID ")
+           .append("INNER JOIN mceserv.MCES_RESOURCE MR ")
+           .append("   ON MR.RESOURCE_PK = CR.RESOURCE_PKREF ")
+           .append("INNER JOIN mceserv.RESOURCE_ACCOUNT_LOAN RAL ")
+           .append("   ON RAL.RESOURCE_PKREF = MR.RESOURCE_PK ")
+           .append("INNER JOIN mceserv.COMPANY_DETAILS CD ")
+           .append("   ON CD.ACTIVE_COMP_PKREF = CR.COMP_PKREF ")
+           .append("WHERE MUS.USER_STATUS_CODE = 'Active' ")
+           .append("  AND MR.RESOURCE_TYPE IN ('LOAN','US_DDA') ")
+           .append("  AND RAL.LOAN_SYSTEM = 'LOANIQ' ")
+           .append("  AND EXISTS (SELECT 1 FROM active_company)");
+
+        return sql.toString();
+    }
 }
+
 
