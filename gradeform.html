@@ -63,52 +63,27 @@
 
 </html>
 
-private void flattenNode(JsonNode node, List<NameValue> properties) {
-    node.fields().forEachRemaining(entry -> {
-        String name = entry.getKey();
-        JsonNode value = entry.getValue();
-
-        // Case 1: Nested object (recurse)
-        if (value.isObject() && !value.isArray()) {
-            flattenNode(value, properties);
-        }
-
-        // Case 2: "property" array case (special BPM structure)
-        else if (name.equals("property") && value.isArray()) {
-            for (JsonNode arrayElement : value) {
-                if (arrayElement.isObject()) {
-                    String propName = arrayElement.has("name") ? arrayElement.get("name").asText() : null;
-                    String propValue = arrayElement.has("value") ? arrayElement.get("value").asText() : null;
-                    if (propName != null && propValue != null) {
-                        NameValue nv = new NameValue();
-                        nv.setName(propName);
-                        nv.setValue(propValue);
-                        properties.add(nv);
-                    }
-                }
-            }
-        }
-
-        // Case 3: Simple field (string, number, boolean, etc.)
-        else if (!value.isNull() && !value.isContainerNode()) {
-            NameValue nv = new NameValue();
-            nv.setName(name);
-            nv.setValue(value.asText());
-            properties.add(nv);
-        }
-
-        // Case 4: Array of primitive values (not property)
-        else if (value.isArray()) {
-            for (JsonNode arrayElement : value) {
-                if (!arrayElement.isNull() && !arrayElement.isContainerNode()) {
-                    NameValue nv = new NameValue();
-                    nv.setName(name);
-                    nv.setValue(arrayElement.asText());
-                    properties.add(nv);
-                } else if (arrayElement.isObject()) {
-                    flattenNode(arrayElement, properties);
-                }
-            }
-        }
-    });
+public String buildLoanDDAMappingQuery(@Param("compId") String compId,
+                                       @Param("userId") String userId) {
+    return """
+        WITH active_company AS (
+            SELECT COMP_ID
+            FROM mceserv.MCES_COMPANY CA
+            INNER JOIN mceserv.COMPANY_DETAILS CD ON CA.COMP_PK = CD.ACTIVE_COMP_PKREF
+            WHERE CA.COMP_ID = #{compId}
+            AND CD.STATUS_CODE = 'Active'
+        )
+        SELECT CA.COMP_ID AS compId, CD.STATUS_CODE AS compStatus, MU.USER_ID AS userId, MUS.USER_STATUS_CODE AS userStatus
+        FROM active_company CA
+        INNER JOIN mceserv.MCES_USER MU ON MU.USER_ID = #{userId}
+        INNER JOIN mceserv.USER_STATUS MUS ON MU.USER_PK = MUS.ACTIVE_USER_PKREF
+        INNER JOIN mceserv.COMP_RESOURCE CR ON CA.COMP_ID = CR.COMP_ID
+        INNER JOIN mceserv.MCES_RESOURCE MR ON MR.RESOURCE_PK = CR.RESOURCE_PKREF
+        INNER JOIN mceserv.RESOURCE_ACCOUNT_LOAN RAL ON RAL.RESOURCE_PKREF = MR.RESOURCE_PK
+        WHERE MUS.USER_STATUS_CODE = 'Active'
+        AND MR.RESOURCE_TYPE IN ('LOAN','US_DDA')
+        AND RAL.LOAN_SYSTEM = 'LOANIQ'
+        AND EXISTS (SELECT 1 FROM active_company)
+    """;
 }
+
