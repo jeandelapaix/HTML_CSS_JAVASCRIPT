@@ -1,0 +1,56 @@
+package com.example.dbmcp.mcp;
+
+import com.example.dbmcp.db.DbQueryService;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbacks;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.Map;
+
+@Configuration
+public class DbMcpToolsConfig {
+
+    @Bean
+    ToolCallback testConnection(DbQueryService db) {
+        return ToolCallbacks.from(
+            "db_session_test_connection",
+            "Test DB connection for a given sessionId",
+            (Map<String, String> args) -> {
+                String sessionId = args.get("sessionId");
+                return Map.of(
+                        "sessionId", sessionId,
+                        "status", db.testConnection(sessionId)
+                );
+            }
+        );
+    }
+
+    @Bean
+    ToolCallback query(DbQueryService db) {
+        return ToolCallbacks.from(
+            "db_session_query",
+            "Run a READ-ONLY SQL query using credentials for sessionId",
+            (Map<String, Object> args) -> {
+                String sessionId = (String) args.get("sessionId");
+                String sql = (String) args.get("sql");
+                Integer maxRows = (Integer) args.getOrDefault("maxRows", 200);
+                return db.query(sessionId, sql, maxRows);
+            }
+        );
+    }
+
+    @Bean
+    ToolCallback compareRowCount(DbQueryService db) {
+        return ToolCallbacks.from(
+            "db_session_compare_rowcount",
+            "Compare COUNT(*) between two sessions",
+            (Map<String, String> args) -> db.compareRowCount(
+                    args.get("sessionA"),
+                    args.get("sessionB"),
+                    args.get("tableOrView"),
+                    args.get("whereClauseNullable")
+            )
+        );
+    }
+}
